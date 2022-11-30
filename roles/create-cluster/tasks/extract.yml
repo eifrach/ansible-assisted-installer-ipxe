@@ -1,0 +1,140 @@
+---
+- name: "[{{ arch }}] Set ISO path"
+  set_fact:
+    DOWNLOADED_ISO: "{{ CLUSTERDIR }}/{{ CLUSTER_NAME }}-{{ arch }}.iso"
+    HTTP_DIR: "{{ CLUSTERDIR }}/{{ arch }}/HTTP"
+  tags:
+    - extract
+
+- name: "[{{ arch }}] Get file in ISO"
+  stat:
+    path: "{{ DOWNLOADED_ISO }}"
+  register: path
+  tags:
+    - extract
+
+- name: "[{{ arch }}] Verify if ISO exist"
+  fail:
+    msg: "couldnt find ISO in {{ DOWNLOADED_ISO }}"
+  when: not path.stat.exists 
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Create folders"
+  ansible.builtin.file:
+    path: "{{ HTTP_DIR }}"
+    mode: '0755'
+    state: directory
+  tags:
+    - extract
+
+- name: debug
+  debug:
+    var: playbook_dir
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Extract files from a ISO"
+  iso_extract:
+    image: "{{ DOWNLOADED_ISO }}"
+    dest: "{{ HTTP_DIR }}"
+    files:
+    - images/pxeboot/initrd.img
+    - images/pxeboot/vmlinuz
+    - images/ignition.img
+    - images/efiboot.img
+  become: True
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Create Mount point"
+  file:
+    path: "{{ MNT_EFIBOOT }}"
+    state: directory
+    owner: root
+    group: root
+  become: True
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Mount efiboot image"
+  mount:
+    path: "{{ MNT_EFIBOOT }}"
+    src: "{{ HTTP_DIR }}/efiboot.img"
+    fstype: vfat
+    state: mounted
+  become: True
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Release Mount"
+  mount:
+    path: "{{ MNT_EFIBOOT }}"
+    src: "{{ HTTP_DIR }}/efiboot.img"
+    state: absent
+  become: True
+  tags:
+    - extract
+
+- name: "[{{ arch }}] [ full-iso ] Extract rootfs.img from a ISO"
+  iso_extract:
+    image: "{{ DOWNLOADED_ISO }}"
+    dest: "{{ HTTP_DIR }}"
+    files:
+    - images/pxeboot/rootfs.img
+  when: IMAGE_TYPE == "full-iso" 
+  become: True
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] [ minimal-iso ] getting boot info"
+  iso_extract:
+    image: "{{ DOWNLOADED_ISO }}"
+    dest: "{{ HTTP_DIR }}"
+    files:
+    - isolinux/isolinux.cfg
+  become: True
+  when: IMAGE_TYPE == "minimal-iso"
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] [ minimal-iso ] Downloading rootfs.img"
+  shell: |
+    URL=$(cat {{ HTTP_DIR }}/isolinux.cfg  | grep -o 'coreos.live.rootfs_url=.*' | cut -f2- -d"=")
+    curl $URL --output  {{ HTTP_DIR }}/rootfs.img
+  args:
+    chdir: "{{ HTTP_DIR }}"
+  become: True
+  when: IMAGE_TYPE == "minimal-iso"
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Extract ignition file" 
+  shell: 
+    cmd: |
+      cat ignition.img | gunzip | cpio -i
+  args:
+    chdir: "{{ HTTP_DIR }}"
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Cleanup files"
+  file:
+    path: "{{ file_path }}"
+    state: absent
+  loop:
+    - "{{ HTTP_DIR }}/efiboot.img"
+    - "{{ HTTP_DIR }}/ignition.img"
+    - "{{ HTTP_DIR }}/isolinux.cfg"
+  loop_control:
+    loop_var: file_path
+  become: True
+  tags:
+    - extract
+
+- name:  "[{{ arch }}] Create IPXE script"
+  template:
+    src: ipxe.j2
+    dest: "{{ HTTP_DIR }}/ipxe"
+  tags:
+    - extract

@@ -1,0 +1,67 @@
+---
+#################################################
+## Needed configurations for playbook
+## Mendatory 
+#################################################
+
+### OCM token to create API KEY
+### can be created at https://console.redhat.com/openshift/token
+# TOKEN: ""
+
+### (Mandatory) set PullSecret created for Redhat
+### can be downloaded from: "https://console.redhat.com/openshift/install/pull-secret"
+### note this file should be located on the localhost and NOT the remote node 
+# PULL_SECRET_FILE: ""
+
+
+### HTTP server IPXE for ipxe script
+# HTTP_SERVER_IP: "192.168.122.1"
+
+
+### setup host IP range and prefix
+# HOST_NET_ADDRESS: "192.168.122.0"
+# HOST_PREFIX: "24"
+
+#################################################
+## All available variables and the default values
+## Optional 
+#################################################
+
+### Working dircory 
+### will be used to save all files and API replays
+### default will be current directory
+# WORKDIR: ""
+
+### Assisted Installer API URL
+API_URL: "https://api.openshift.com/api/assisted-install"
+
+### Cluster Version that will be created
+CLUSTER_VERSION: '4.11.9-multi'
+
+### Cluster networking
+CLUSTER_CIDR: '10.128.0.0/14'
+CLUSTER_PREFIX: '23'
+SERVICE_CIDR: '172.30.0.0/16'
+
+### NTP configuration for cluster 
+NTP: "clock.redhat.com"
+
+### Images size to be Genrated "minimal-iso" or "full-iso"
+### Full iso size ~= 800MB
+### Minimal sizq ~=  95MB
+IMAGE_TYPE: 'minimal-iso'
+
+### Cluster Name and Domainextract
+CLUSTER_NAME: 'cluster-1'
+CLUSTER_DOMAIN: 'example.com'
+SSH_PUB_KEY_FILE: "~/.ssh/id_rsa.pub"
+
+### CPU architecture x86_64 | arm64  | multi
+### default multi
+ARCH: multi
+
+### configurations for ISO 
+MNT_EFIBOOT: "/mnt/efiboot"
+
+### Optional add Kernel Option
+KERNEL_OPTS: ""

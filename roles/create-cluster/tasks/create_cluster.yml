@@ -1,0 +1,71 @@
+---
+- name: Get Public key
+  shell: "cat {{ SSH_PUB_KEY_FILE }}"
+  register: SSH_PUB_KEY
+  delegate_to: localhost
+  tags:
+    - create-cluster
+
+- name: Get Pull Secret
+  shell: "cat {{ PULL_SECRET_FILE }} | jq -c '.' | jq -Rs '.'  "
+  register: PULL_SECRET
+  delegate_to: localhost
+  tags:
+    - create-cluster
+  
+
+- name: Render template
+  template:
+    src: cluster.j2
+    dest: /tmp/cluster.json
+  tags:
+    - create-cluster
+  
+- name: Read Cluster json
+  slurp:
+    src: /tmp/cluster.json
+  register: CLUSTER_JSON
+  tags:
+    - create-cluster
+  
+- name: "[AI] Create Cluster"
+  uri:
+    url: "{{ API_URL }}/v2/clusters/"
+    method: POST
+    body: "{{  CLUSTER_JSON.content | b64decode | from_json }}"
+    headers: 
+      Accept: application/json
+      Content-Type: application/json
+      Authorization: "{{ API_TOKEN.stdout }}"
+    body_format: json
+    follow_redirects: all
+    return_content: yes
+    status_code: "201"
+  register: CREATED_CLUSTER
+  tags:
+    - create-cluster
+  
+
+- name: "set Cluster ID"
+  set_fact:
+    CLUSTERID: "{{  CREATED_CLUSTER.content | from_json | json_query('id') }}"
+  tags:
+    - create-cluster
+  
+  
+- name: Save Cluster json
+  copy: 
+    content: "{{ CREATED_CLUSTER.content }}"
+    dest: "{{ CLUSTERDIR }}/cluster.json"
+  tags:
+    - create-cluster
+  
+- name: debug 
+  debug:
+    msg: 
+      - "ClusterID: {{  CREATED_CLUSTER.content | from_json | json_query('id') }}"
+      - "Name: {{  CREATED_CLUSTER.content | from_json | json_query('name') }}"
+      - "openshift version: {{  CREATED_CLUSTER.content | from_json | json_query('openshift_version') }}"
+  tags:
+    - create-cluster
+      

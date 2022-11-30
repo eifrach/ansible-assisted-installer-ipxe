@@ -1,0 +1,94 @@
+---
+- name: Trying to Get Cluster Id
+  shell: "cat {{ CLUSTERDIR }}/cluster.json"
+  register: CLUSTERJSON
+  when: CLUSTERID is not defined
+  tags:
+    - get-iso
+
+- name: Set cluster id from file
+  set_fact:
+    CLUSTERID: "{{ CLUSTERJSON.stdout | from_json | json_query('id') }}"
+  when: CLUSTERID is not defined
+  tags:
+    - get-iso
+
+- name: Verify that cluster ID is set
+  fail:
+    msg: "Error: Missing CLUSTERID"
+  when: CLUSTERID is not defined
+  tags:
+    - get-iso
+
+- name: Get Public key
+  shell: "cat {{ SSH_PUB_KEY_FILE }}"
+  register: SSH_PUB_KEY
+  delegate_to: localhost
+  tags:
+    - get-iso
+
+- name: Get Pull Secret
+  shell: "cat {{ PULL_SECRET_FILE }} | jq -c '.' | jq -Rs '.'  "
+  register: PULL_SECRET
+  delegate_to: localhost
+  tags:
+    - get-iso
+
+- name: "[AI] Generate ISO"
+  uri:
+    url: "{{ API_URL }}/v2/infra-envs"
+    method: POST
+    body: "{{ lookup('template', 'generate_iso.j2')}}"
+    headers: 
+      Accept: application/json
+      Content-Type: application/json
+      Authorization: "{{ TOKEN_HEADER }}"
+    body_format: json
+    follow_redirects: all
+    return_content: yes
+    status_code: "201"
+  loop: "{{ ARCH_TYPE }}"
+  tags:
+    - get-iso
+
+- name: "[AI]  Search for infraenvs"
+  uri:
+    url: "{{ API_URL }}/v2/infra-envs?cluster_id={{ CLUSTERID }}"
+    method: GET
+    headers: 
+      Accept: application/json
+      Content-Type: application/json
+      Authorization: "{{ TOKEN_HEADER }}"
+    body_format: json
+    follow_redirects: all
+    return_content: yes
+  register: INFRAENV
+  tags:
+    - get-iso
+  
+- name: Save Cluster json
+  copy: 
+    content: "{{ item }}"
+    dest: "{{ CLUSTERDIR }}/infraenv-{{ item | json_query('id') }}.json"
+  loop: "{{INFRAENV.content}}"
+  tags:
+    - get-iso
+
+- name: Print Infraenvs info 
+  debug:
+    msg: 
+      - "infraenv id: {{item | json_query('id') }} "
+      - "cpu_architecture: {{ item  | json_query('cpu_architecture') }}"
+      - "download_url: {{ item | json_query('download_url') }} "
+  loop: "{{INFRAENV.content}}"
+  tags:
+    - get-iso
+
+- name: "[AI] donwloading ISO"
+  ansible.builtin.get_url:
+    url: "{{ item | json_query('download_url') }}"
+    dest: "{{ CLUSTERDIR }}/{{ CLUSTER_NAME }}-{{ item  | json_query('cpu_architecture') }}.iso"
+  loop: "{{INFRAENV.content}}"
+  tags:
+    - get-iso
+  

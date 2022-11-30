@@ -1,0 +1,5 @@
+inventory/hosts
+vars.yaml
+venv
+.vscode
+workdir

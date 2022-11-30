@@ -1,0 +1,30 @@
+- name: OCM login
+  shell: ocm login --token {{ TOKEN }}
+  tags: 
+    - always
+
+- name: Create API Access TOKEN
+  shell: 'echo "Bearer $(ocm token)"'
+  register: API_TOKEN
+  tags: 
+    - always
+
+- name: Set token fact
+  set_fact:
+    TOKEN_HEADER: "{{ API_TOKEN.stdout }}"
+  tags: 
+    - always
+
+- name: Verify Assisted service is Available
+  uri:
+    url: "{{ API_URL }}/v2/clusters"
+    method: GET
+    headers: 
+      Accept: application/json
+      Content-Type: application/json
+      Authorization: "{{ TOKEN_HEADER }}"
+    follow_redirects: all
+    return_content: yes
+    status_code: "200"
+  tags: 
+    - always

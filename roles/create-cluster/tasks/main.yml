@@ -1,0 +1,67 @@
+---
+# tasks file for roles/create-cluster
+- name: Set workdir
+  set_fact:
+    WORKDIR: "{{ playbook_dir }}/workdir"
+  when: WORKDIR is not defined
+  tags:
+    - always
+
+- name: Create Cluster Working dir variable
+  set_fact:
+    CLUSTERDIR: "{{ WORKDIR }}/{{ CLUSTER_NAME }}-{{ ARCH }}"
+  tags:
+    - always
+
+- name: Create a directory if it does not exist
+  ansible.builtin.file:
+    path: "{{ CLUSTERDIR }}"
+    state: directory
+    mode: '0755'
+  register: CHECK_WORKDIR
+  tags: 
+    - always
+
+- name: Login to API
+  include_tasks: login.yml
+  tags: 
+    - always
+
+- name: Check if Multi arch
+  set_fact:
+    ARCH_TYPE:
+      - "x86_64"
+      - "arm64" 
+  when:
+    - ARCH == "multi"
+  tags:
+    - always
+
+- name: Check if not Multi arch 
+  set_fact:
+    ARCH_TYPE: 
+      - "{{ ARCH }}"
+  when:
+    - ARCH != "multi"
+  tags:
+    - always
+
+- name: Creating Cluster with Assisted installer
+  include_tasks: create_cluster.yml
+  when: CLUSTERID is not defined 
+  tags:
+    - create-cluster
+  
+
+- name: Genrate ISO and Downloading
+  include_tasks: genrate_iso.yml
+  tags:
+    - get-iso
+
+- name: Genrate ISO and Downloading
+  include_tasks: extract.yml
+  loop: "{{ ARCH_TYPE }}"
+  loop_control:
+    loop_var: arch
+  tags:
+    - extract

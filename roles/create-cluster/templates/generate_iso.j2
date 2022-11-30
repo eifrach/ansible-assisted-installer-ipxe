@@ -1,0 +1,9 @@
+{
+  "name": "{{CLUSTER_NAME}}",
+  "image_type": "{{ IMAGE_TYPE }}",
+  "cluster_id": "{{ CLUSTERID }}",
+  "pull_secret": {{ PULL_SECRET.stdout }},
+  "openshift_version": "{{ CLUSTER_VERSION }}",
+  "cpu_architecture": "{{ item }}",
+  "ssh_public_key": "{{ SSH_PUB_KEY.stdout }}"
+}
